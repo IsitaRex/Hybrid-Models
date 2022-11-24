@@ -22,10 +22,18 @@ The base code for this implementation can be found on this [link](https://toward
 To train a CNN run:
 
 ```
-python main.py --epochs 10 --task Hybrid-Models-CNN --lr 0.001
+python main.py  --task Hybrid-Models-CNN --epochs 10 --batch_size 32 --lr 0.001
 ```
 ### GAN:
 The base code for this implementation can be found on this [link](https://debuggercafe.com/vanilla-gan-pytorch/)
 
 To train a GAN run:
 
+
+:warning: DO NOT USE 'mps' AS DEVICE
+
+## Results
+To keep track of the experiments Weights and Biases can be easily integrated to the code by adding the flag
+```
+--use_wandb True
+```
