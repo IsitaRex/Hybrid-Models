@@ -1,37 +1,89 @@
 import torch
 import wandb
-import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
+import torchvision.transforms as transforms
+import matplotlib.pyplot as plt
+import seaborn as sn
+import pandas as pd
+from torch.functional import F
+from sklearn.preprocessing import label_binarize
 from datetime import datetime 
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, auc, confusion_matrix
+from PIL import Image
 
-def get_roc_curve(model, data_loader, device):
+
+def plot_roc_curve(fpr, tpr, roc_auc, n_classes=10, show=False):
+    '''
+    Function for plotting the ROC curve
+    '''
+    fig, ax = plt.subplots()
+    lw = 2
+    colors = ['aqua', 'darkorange', 'cornflowerblue', 'red', 'green', 'yellow', 'black', 'pink', 'purple', 'brown']
+    for i,color in zip(range(n_classes), colors):
+        ax.plot(fpr[i], tpr[i], color=color,
+                 lw=lw, label=f'ROC curve of class {i} (area = {roc_auc[i]:.2f})')
+    ax.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
+    ax.set_xlabel('False Positive Rate')
+    ax.set_ylabel('True Positive Rate')
+    ax.set_title('ROC Curves')
+    ax.legend(loc="lower right")
+    if show:
+        plt.show()
+
+    # log the ROC curve to wandb
+    wandb.log({"ROC Curve": wandb.Image(fig)})
+
+def get_roc_curve(model, data_loader, device, n_classes=10):
     '''
     Function for computing the ROC curve of the predictions over the entire data_loader
     '''
-    
-    y_true = []
-    y_prob = []
-    
+
+    fpr = dict()
+    tpr = dict()
+    roc_auc = dict()
+    y_all = None
+    y_score_all = None
     with torch.no_grad():
         model.eval()
         for X, y in data_loader:
 
             X = X.to(device)
             y = y.to(device)
-
+            
             _, y_prob_batch = model(X)
-            y_prob.append(y_prob_batch[:,1].cpu().numpy())
-            y_true.append(y.cpu().numpy())
+            y = y.cpu().numpy()
+            y = label_binarize(y, classes=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+            y_prob_batch = y_prob_batch.numpy()
+            if y_all is None:
+                y_all = y
+                y_score_all = y_prob_batch.copy()
+            else:
+                y_all = np.concatenate((y_all, y), axis=0)
+                y_score_all = np.concatenate((y_score_all, y_prob_batch), axis=0)
 
-    y_true = np.concatenate(y_true)
-    y_prob = np.concatenate(y_prob)
+        for i in range(n_classes):
+            fpr[i], tpr[i], _ = roc_curve(y_all[:,i],y_score_all[:,i])
+            roc_auc[i] = auc(fpr[i], tpr[i])
+        
+        # create confusion matrix and log it to wandb
+        # transform y_all and y_score_all to 1D arrays
+        y_all = np.argmax(y_all, axis=1)
+        y_score_all = np.argmax(y_score_all, axis=1)
+        cm = confusion_matrix(y_all,y_score_all)
+        df_cm = pd.DataFrame(cm, index = [i for i in "0123456789"],
+                  columns = [i for i in "0123456789"])
+        f, ax = plt.subplots(figsize=(5, 5))
+        cmap = sn.cubehelix_palette(light=1, as_cmap=True)
+
+        sn.heatmap(df_cm, cbar=False, annot=True, cmap=cmap, square=True, fmt='.0f',
+                    annot_kws={'size': 10})
+        ax.set_title("Confusion Matrix")
+        wandb.log({"Confusion Matrix": wandb.Image(f)})
     
-    
-    fpr, tpr, _ = roc_curve(y_true, y_prob)
-    
-    return fpr, tpr
+    return fpr, tpr, roc_auc
+
 # from: https://towardsdatascience.com/implementing-yann-lecuns-lenet-5-in-pytorch-5e05a0911320
 def get_accuracy(model, data_loader, device):
     '''
@@ -55,7 +107,6 @@ def get_accuracy(model, data_loader, device):
             correct_pred += (predicted_labels == y_true).sum()
 
     return correct_pred.float() / n
-
 
 # from: https://towardsdatascience.com/implementing-yann-lecuns-lenet-5-in-pytorch-5e05a0911320
 def train(train_loader, model, criterion, optimizer, device):
@@ -109,8 +160,8 @@ def validate(valid_loader, model, criterion, device):
         
     return model, epoch_loss
 
+def training_loop(model, criterion, optimizer, train_loader, valid_loader, epochs, device, print_every=1, plot_roc=True):
 
-def training_loop(model, criterion, optimizer, train_loader, valid_loader, epochs, device, print_every=1):
     '''
     Function defining the entire training loop
     '''
@@ -147,11 +198,43 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
 
             wandb.log({"Train accuracy": float(100 * train_acc), "Valid accuracy": float(100 * valid_acc)}, step=epoch)
             # get ROC curve
-            fpr, tpr = get_roc_curve(model, valid_loader, device)
-            wandb.log({"ROC curve": wandb.plot.line_series(fpr, tpr, title="ROC curve", xlabel="False positive rate", ylabel="True positive rate")}, step=epoch)
+    fpr, tpr, roc_auc = get_roc_curve(model, valid_loader, device=device, n_classes=10)
+    plot_roc_curve(fpr, tpr, roc_auc, show=plot_roc)
            
-
-
-    
-    
     return model, optimizer, (train_losses, valid_losses)
+
+def predict(model, image, device):
+    '''
+    Function for predicting the class of an image in .jpg format
+    '''
+
+    # load image and import the libraries
+
+    # define the transformations
+    transform = transforms.Compose([transforms.Resize((32, 32)),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize((0.1307,), (0.3081,))])
+
+    # load the image
+    image = Image.open(image)
+
+    # apply the transformations
+    image = transform(image)
+
+    # add a batch dimension
+    image = image.unsqueeze(0)
+
+    # move the input and model to GPU for speed if available
+
+    image = image.to(device)
+
+    # predict the class of the image
+    with torch.no_grad():
+        model.eval()
+        _, output = model(image)
+        _, predicted = torch.max(output, 1)
+
+    return predicted
+
+
+                                
