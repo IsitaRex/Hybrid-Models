@@ -8,14 +8,13 @@ from src.utils.train import training_loop
 RANDOM_SEED = 42
 LEARNING_RATE = 0.001
 BATCH_SIZE = 32
-N_EPOCHS = 5
+N_EPOCHS = 10
 IMG_SIZE = 32
 N_CLASSES = 10
 TASK = "Hybrid-Models-CNN"
 SEED = 121212
-DEVICE = "mps" 
-#if torch.cuda.is_available() else "cpu"
-breakpoint()
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
 config = {
     "seed": RANDOM_SEED,
     "lr": LEARNING_RATE,
