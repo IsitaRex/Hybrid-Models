@@ -14,4 +14,18 @@ Install the requirements list on your environment
 ```
 pip install -r requirements.txt
 ```
-## Architechtures
+## Tasks  :crystal_ball:
+
+### CNN (LeNet5):
+The base code for this implementation can be found on this [link](https://towardsdatascience.com/implementing-yann-lecuns-lenet-5-in-pytorch-5e05a0911320)
+
+To train a CNN run:
+
+```
+python main.py --epochs 10 --task Hybrid-Models-CNN --lr 0.001
+```
+### GAN:
+The base code for this implementation can be found on this [link](https://debuggercafe.com/vanilla-gan-pytorch/)
+
+To train a GAN run:
+
