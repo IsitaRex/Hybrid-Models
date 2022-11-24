@@ -218,6 +218,9 @@ def predict(model, image, device):
     # load the image
     image = Image.open(image)
 
+    # turn to grayscale
+    image = image.convert('L')
+
     # apply the transformations
     image = transform(image)
 
