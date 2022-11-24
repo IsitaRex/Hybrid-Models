@@ -31,9 +31,10 @@ def main(config):
 
         # predict class of an image
         print("Predicting class of an image")
-        image = "data/2.jpg"
-        clas =predict(model, image, device=DEVICE)
-        print(f"The predicted class is {clas}")
+        for i in range(10):
+            image = f"data/my_numbers/{i}.jpg"
+            clas =predict(model, image, device=DEVICE)
+            print(f"The predicted class is {clas}, the actual class is {i}")
     elif config["task"] == "Hybrid-Models-GAN":
         pass
     elif config["task"] == "Hybrid-Models-AUTOENCODER":
