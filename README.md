@@ -29,7 +29,8 @@ The base code for this implementation can be found on this [link](https://debugg
 
 To train a GAN run:
 
-
+```
+python main.py  --task "Hybrid-Models-GAN" --epochs 200 --lr 0.0001 --batch_size 512 --device 'cpu'
 :warning: DO NOT USE 'mps' AS DEVICE
 
 ## Results
