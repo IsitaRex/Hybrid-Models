@@ -17,8 +17,10 @@ class Generator(nn.Module):
             nn.Linear(1024, 784),
             nn.Tanh(),
         )
+
     def forward(self, x):
         return self.main(x).view(-1, 1, 28, 28)
+
 
 # from: https://debuggercafe.com/vanilla-gan-pytorch/
 class Discriminator(nn.Module):
@@ -38,6 +40,7 @@ class Discriminator(nn.Module):
             nn.Linear(256, 1),
             nn.Sigmoid(),
         )
+
     def forward(self, x):
         x = x.view(-1, 784)
         return self.main(x)
