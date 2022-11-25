@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class LeNet5(nn.Module):
 
+class LeNet5(nn.Module):
     def __init__(self, n_classes):
         super(LeNet5, self).__init__()
-        
-        self.feature_extractor = nn.Sequential(            
+
+        self.feature_extractor = nn.Sequential(
             nn.Conv2d(in_channels=1, out_channels=6, kernel_size=5, stride=1),
             nn.Tanh(),
             nn.AvgPool2d(kernel_size=2),
@@ -15,7 +15,7 @@ class LeNet5(nn.Module):
             nn.Tanh(),
             nn.AvgPool2d(kernel_size=2),
             nn.Conv2d(in_channels=16, out_channels=120, kernel_size=5, stride=1),
-            nn.Tanh()
+            nn.Tanh(),
         )
 
         self.classifier = nn.Sequential(
@@ -23,7 +23,6 @@ class LeNet5(nn.Module):
             nn.Tanh(),
             nn.Linear(in_features=84, out_features=n_classes),
         )
-
 
     def forward(self, x):
         x = self.feature_extractor(x)
