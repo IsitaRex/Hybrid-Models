@@ -154,3 +154,5 @@ cython_debug/
 data/
 wandb/
 .mp3
+/outputs/
+.png
