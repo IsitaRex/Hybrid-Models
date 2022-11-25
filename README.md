@@ -31,7 +31,8 @@ To train a GAN run:
 
 ```
 python main.py  --task "Hybrid-Models-GAN" --epochs 200 --lr 0.0001 --batch_size 512 --device 'cpu'
-:warning: DO NOT USE 'mps' AS DEVICE
+```
+:warning: DO NOT USE 'mps' AS DEVICE/ CUDA NOT TESTED -> RECOMMENDED TO USE 'cpu'
 
 ## Results
 To keep track of the experiments Weights and Biases can be easily integrated to the code by adding the flag
