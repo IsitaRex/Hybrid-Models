@@ -34,6 +34,14 @@ python main.py  --task "Hybrid-Models-GAN" --epochs 200 --lr 0.0001 --batch_size
 ```
 :warning: DO NOT USE 'mps' AS DEVICE/ CUDA NOT TESTED -> RECOMMENDED TO USE 'cpu'
 
+## AUTOENCODER:
+First, an autoencoder is trained 
+
+To train an autoencoder: 
+
+```
+python main.py --epochs 15 --lr 0.0002 --task "Hybrid-Models-AUTOENCODER" --batch_size 512
+```
 ## Results
 To keep track of the experiments Weights and Biases can be easily integrated to the code by adding the flag
 ```
