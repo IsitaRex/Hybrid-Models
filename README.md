@@ -34,7 +34,7 @@ python main.py  --task "Hybrid-Models-GAN" --epochs 200 --lr 0.0001 --batch_size
 ```
 :warning: DO NOT USE 'mps' AS DEVICE/ CUDA NOT TESTED -> RECOMMENDED TO USE 'cpu'
 
-## AUTOENCODER:
+### AUTOENCODER:
 First, an autoencoder is trained 
 
 To train an autoencoder: 
