@@ -26,7 +26,7 @@ def main(config):
     elif config["task"] == "Hybrid-Models-GAN":
         utils.task_gan(config)
     elif config["task"] == "Hybrid-Models-AUTOENCODER":
-        pass
+        utils.task_autoencoder(config)
     else:
         print("No model defined for this task")
 
