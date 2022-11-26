@@ -21,7 +21,7 @@ def plot_roc_curve(fpr, tpr, roc_auc, n_classes=10, show=False):
     colors = ['aqua', 'darkorange', 'cornflowerblue', 'red', 'green', 'yellow', 'black', 'pink', 'purple', 'brown']
     for i,color in zip(range(n_classes), colors):
         ax.plot(fpr[i], tpr[i], color=color,
-                 lw=lw, label=f'ROC curve of class {i} (area = {roc_auc[i]:.2f})')
+                 lw=lw, label=f'ROC curve of class {i} (area = {roc_auc[i]:.4f})')
     ax.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
     ax.set_xlim([0.0, 1.0])
     ax.set_ylim([0.0, 1.05])
@@ -35,7 +35,7 @@ def plot_roc_curve(fpr, tpr, roc_auc, n_classes=10, show=False):
     # log the ROC curve to wandb
     wandb.log({"ROC Curve": wandb.Image(fig)})
 
-def get_roc_curve(model, data_loader, device, n_classes=10):
+def get_roc_curve(model, data_loader, device, n_classes=10, encode_data = False, encoder = None):
     '''
     Function for computing the ROC curve of the predictions over the entire data_loader
     '''
@@ -51,11 +51,16 @@ def get_roc_curve(model, data_loader, device, n_classes=10):
 
             X = X.to(device)
             y = y.to(device)
-            
+            if encode_data:
+                encoder.to(device)
+                X = X.view(-1, 1024).to(device)
+                X = encoder(X)
+                X = X.view(-1, 1, 28, 28).to(device)
+
             _, y_prob_batch = model(X)
             y = y.cpu().numpy()
             y = label_binarize(y, classes=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-            y_prob_batch = y_prob_batch.numpy()
+            y_prob_batch = y_prob_batch.cpu().numpy()
             if y_all is None:
                 y_all = y
                 y_score_all = y_prob_batch.copy()
@@ -85,7 +90,7 @@ def get_roc_curve(model, data_loader, device, n_classes=10):
     return fpr, tpr, roc_auc
 
 # from: https://towardsdatascience.com/implementing-yann-lecuns-lenet-5-in-pytorch-5e05a0911320
-def get_accuracy(model, data_loader, device):
+def get_accuracy(model, data_loader, device, encode_data = False, encoder = None):
     '''
     Function for computing the accuracy of the predictions over the entire data_loader
     '''
@@ -99,6 +104,12 @@ def get_accuracy(model, data_loader, device):
 
             X = X.to(device)
             y_true = y_true.to(device)
+            if encode_data:
+                encoder.to(device)
+                X = X.view(-1, 1024).to(device)
+                X = encoder(X)
+                X = X.view(-1, 1, 28, 28).to(device)
+
 
             _, y_prob = model(X)
             _, predicted_labels = torch.max(y_prob, 1)
@@ -109,7 +120,7 @@ def get_accuracy(model, data_loader, device):
     return correct_pred.float() / n
 
 # from: https://towardsdatascience.com/implementing-yann-lecuns-lenet-5-in-pytorch-5e05a0911320
-def train(train_loader, model, criterion, optimizer, device):
+def train(train_loader, model, criterion, optimizer, device, encode_data = False, encoder = None):
     '''
     Function for the training step of the training loop
     '''
@@ -122,7 +133,14 @@ def train(train_loader, model, criterion, optimizer, device):
         optimizer.zero_grad()
         
         X = X.to(device)
+        if encode_data:
+            encoder.to(device)
+            X = X.view(-1, 1024).to(device)
+            
+            X = encoder(X)
+            X = X.view(-1, 1, 28, 28).to(device)
         y_true = y_true.to(device)
+        model.to(device)
     
         # Forward pass
         y_hat, _ = model(X) 
@@ -137,7 +155,7 @@ def train(train_loader, model, criterion, optimizer, device):
     return model, optimizer, epoch_loss
 
 # from: https://towardsdatascience.com/implementing-yann-lecuns-lenet-5-in-pytorch-5e05a0911320
-def validate(valid_loader, model, criterion, device):
+def validate(valid_loader, model, criterion, device, encode_data = False, encoder = None):
     '''
     Function for the validation step of the training loop
     '''
@@ -148,6 +166,11 @@ def validate(valid_loader, model, criterion, device):
     for X, y_true in valid_loader:
     
         X = X.to(device)
+        if encode_data:
+            encoder.to(device)
+            X = X.view(-1, 1024).to(device)
+            X = encoder(X)
+            X = X.view(-1, 1, 28, 28).to(device)
         y_true = y_true.to(device)
 
         # Forward pass and record loss
@@ -160,12 +183,16 @@ def validate(valid_loader, model, criterion, device):
         
     return model, epoch_loss
 
-def training_loop(model, criterion, optimizer, train_loader, valid_loader, epochs, device, print_every=1, plot_roc=True):
+def training_loop_cnn(model, criterion, optimizer, train_loader, valid_loader, epochs, device, print_every=1, plot_roc=True, encode_data = False, encoder = None):
 
     '''
     Function defining the entire training loop
     '''
     
+    # raise error ir endoce_data is True but no encoder is given
+    if encode_data and encoder is None:
+        raise ValueError("An encoder must be provided to encode data.")
+
     # set objects for storing metrics
     train_losses = []
     valid_losses = []
@@ -174,20 +201,20 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
     for epoch in range(0, epochs):
 
         # training
-        model, optimizer, train_loss = train(train_loader, model, criterion, optimizer, device)
+        model, optimizer, train_loss = train(train_loader, model, criterion, optimizer, device, encode_data, encoder)
         train_losses.append(train_loss)
         
         # validation
         with torch.no_grad():
-            model, valid_loss = validate(valid_loader, model, criterion, device)
+            model, valid_loss = validate(valid_loader, model, criterion, device, encode_data, encoder)
             valid_losses.append(valid_loss)
 
-        wandb.log({"train_loss": float(train_loss), "val_loss": float(valid_loss)}, step=epoch)
+        wandb.log({"CNN/train_loss": float(train_loss), "CNN/val_loss": float(valid_loss)}, step=epoch)
 
         if epoch % print_every == (print_every - 1):
             
-            train_acc = get_accuracy(model, train_loader, device=device)
-            valid_acc = get_accuracy(model, valid_loader, device=device)
+            train_acc = get_accuracy(model, train_loader, device=device, encode_data=encode_data, encoder=encoder)
+            valid_acc = get_accuracy(model, valid_loader, device=device, encode_data=encode_data, encoder=encoder)
                 
             print(f'{datetime.now().time().replace(microsecond=0)} --- '
                   f'Epoch: {epoch}\t'
@@ -198,7 +225,7 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
 
             wandb.log({"Train accuracy": float(100 * train_acc), "Valid accuracy": float(100 * valid_acc)}, step=epoch)
             # get ROC curve
-    fpr, tpr, roc_auc = get_roc_curve(model, valid_loader, device=device, n_classes=10)
+    fpr, tpr, roc_auc = get_roc_curve(model, valid_loader, device=device, n_classes=10, encode_data=encode_data, encoder=encoder)
     plot_roc_curve(fpr, tpr, roc_auc, show=plot_roc)
            
     return model, optimizer, (train_losses, valid_losses)
@@ -217,6 +244,9 @@ def predict(model, image, device):
 
     # load the image
     image = Image.open(image)
+
+    # turn to grayscale
+    image = image.convert('1')
 
     # apply the transformations
     image = transform(image)
