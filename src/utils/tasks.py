@@ -63,4 +63,51 @@ def task_gan(config):
         )
 
 def task_autoencoder(config):
-        pass
+    trainloader, testloader = utils.load_mnist(config["batch_size"], "resize")
+    # define model
+    model = models.Autoencoder(1024, 784, 1024).to(device=config["device"])
+    # define loss function
+    criterion = torch.nn.MSELoss()
+    # define optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
+    # train model
+    print("Training autoencoder")
+    model, _,_,_ = utils.training_loop_autoencoder(
+        model,
+        criterion,
+        optimizer,
+        trainloader,
+        testloader,
+        config["epochs"],
+        device=config["device"],
+        print_every=1,
+    )
+    print("Training autoencoder done")
+    wandb.finish()
+    # wandb.init(project=config["task"], config=config)
+    wandb.init(project="Hybrid-Models-CNN", config=config)
+    # Use encoder data to train a LeNet5 model
+    encoder = model.encoder_hidden
+    encoder = encoder.to(device=config["device"])
+    # define model
+    model = models.LeNet5(config["n_classes"])
+    # define loss function
+    criterion = torch.nn.CrossEntropyLoss()
+    # define optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
+    # train model
+    print("Training LeNet5 on encoder data")
+    utils.training_loop_cnn(
+        model,
+        criterion,
+        optimizer,
+        trainloader,
+        testloader,
+        config["epochs"],
+        device=config["device"],
+        print_every=1,
+        plot_roc=config["plot_roc"],
+        encode_data=True,
+        encoder=encoder
+    )
+    print("Training LeNet5 on encoder data done")
